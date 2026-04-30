@@ -1,7 +1,7 @@
 # GazeTalk Platform — Deployment Guide
 
 Aphasia rehabilitation tools for the Denmark pilot.
-Deploy in ~10 minutes. Share a single URL with Prof. Hansen and Prof. Haakon.
+Deploy in ~10 minutes. Share a single URL with Prof. Hansen and Prof. Lund.
 
 ---
 
