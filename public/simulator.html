@@ -1,24 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>GazeTalk Synthetic Patient Simulator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     body {
       margin: 0;
       padding: 24px;
-      font-family: Arial, sans-serif;
       background: #0b1020;
       color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     h1 {
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      font-size: 28px;
     }
 
-    .container {
+    p {
+      margin-bottom: 16px;
+      color: #9ca3af;
+    }
+
+    .layout {
       display: grid;
       grid-template-columns: 280px 1fr;
       gap: 16px;
@@ -39,23 +45,28 @@
       border: 1px solid #374151;
       cursor: pointer;
       margin-bottom: 8px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .persona:hover {
+      background: #172554;
     }
 
     .persona.active {
-      border-color: #3b82f6;
-      background: #0f1e36;
+      background: #1d4ed8;
+      border-color: #60a5fa;
     }
 
     button {
-      padding: 10px;
       width: 100%;
-      border: none;
+      margin-top: 12px;
+      padding: 10px;
+      font-weight: 600;
       border-radius: 6px;
-      font-weight: bold;
-      background: #3b82f6;
+      border: none;
+      background: #2563eb;
       color: white;
       cursor: pointer;
-      margin-top: 12px;
     }
 
     button:disabled {
@@ -64,135 +75,8 @@
     }
 
     .chat {
-      margin-top: 12px;
-      background: #0f172a;
+      background: #020617;
       border-radius: 6px;
       padding: 12px;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .msg {
-      margin-bottom: 10px;
-    }
-
-    .therapist {
-      color: #93c5fd;
-    }
-
-    .patient {
-      color: #fde68a;
-      text-align: right;
-    }
-  </style>
-</head>
-
-<body>
-  <h1>GazeTalk Synthetic Patient Simulator</h1>
-  <p>Select a persona and run a simple simulation.</p>
-
-  <div class="container">
-    <div class="card">
-      <h3>Patient Personas</h3>
-      <div id="personaList"></div>
-      <button id="runBtn" onclick="runSimulation()" disabled>
-        ▶ Run Simulation
-      </button>
-    </div>
-
-    <div class="card">
-      <h3>Conversation</h3>
-      <div id="chat" class="chat"></div>
-    </div>
-  </div>
-
-  <script>
-    /* =========================
-       DATA (VALID JS)
-    ========================= */
-
-    const BUILT_IN_PERSONAS = [
-      {
-        patient_id: "DK_M_58_001",
-        display_name: "Henrik Sørensen",
-        country_or_culture: "Denmark",
-        age_group: "50+",
-        gender: "male",
-        aphasia_severity: "moderate",
-        interests: ["Manchester United", "jazz", "cooking"]
-      },
-      {
-        patient_id: "DK_F_67_001",
-        display_name: "Birte Andersen",
-        country_or_culture: "Denmark",
-        age_group: "65+",
-        gender: "female",
-        aphasia_severity: "severe",
-        interests: ["gardening", "grandchildren", "knitting"]
-      }
-    ];
-
-    let selectedPersona = null;
-
-    /* =========================
-       UI SETUP
-    ========================= */
-
-    const personaList = document.getElementById("personaList");
-    const runBtn = document.getElementById("runBtn");
-    const chatBox = document.getElementById("chat");
-
-    function renderPersonas() {
-      personaList.innerHTML = "";
-      BUILT_IN_PERSONAS.forEach((p, idx) => {
-        const div = document.createElement("div");
-        div.className = "persona";
-        div.textContent = p.display_name + " (" + p.aphasia_severity + ")";
-        div.onclick = () => selectPersona(p, div);
-        personaList.appendChild(div);
-      });
-    }
-
-    function selectPersona(persona, element) {
-      document.querySelectorAll(".persona")
-        .forEach(p => p.classList.remove("active"));
-
-      element.classList.add("active");
-      selectedPersona = persona;
-      runBtn.disabled = false;
-    }
-
-    /* =========================
-       CLAUDE CALL
-    ========================= */
-
-    async function callClaude(systemPrompt, userPrompt) {
-      const response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-3-5-sonnet-20240620",
-          max_tokens: 200,
-          system: systemPrompt,
-          messages: [
-            { role: "user", content: userPrompt }
-          ]
-        })
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      return data.content[0].text;
-    }
-
-    /* =========================
-       SIMULATION
-    ========================= */
-
-    async function runSimulation() {
-      if (!selectedPersona) return;
-
-      chatBox.innerHTML = "";
-
-      const systemPrompt =
-        "You are a patient named " + selectedPersona.display_name +
+      min-height: 240px;
+      max-height: 420px;
