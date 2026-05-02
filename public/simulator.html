@@ -2,19 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>GazeTalk Test</title>
+  <title>GazeTalk Simulator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
     body {
       background: #0b1020;
-      color: white;
+      color: #e5e7eb;
       font-family: Arial, sans-serif;
-      padding: 40px;
+      padding: 24px;
+    }
+
+    h1 {
+      margin-bottom: 16px;
+    }
+
+    .persona {
+      border: 1px solid #374151;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .persona.active {
+      background: #1d4ed8;
+    }
+
+    button {
+      margin-top: 16px;
+      padding: 10px;
+      width: 200px;
+      font-weight: bold;
     }
   </style>
 </head>
+
 <body>
-  <h1>✅ GazeTalk Simulator Loaded</h1>
-  <p>If you can see this text, HTML rendering is working.</p>
+  <h1>GazeTalk Synthetic Patient Simulator</h1>
+
+  <div id="personaList"></div>
+
+  <button id="runBtn" disabled>
+    ▶ Run Simulation
+  </button>
+
+  <p id="status"></p>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+      const personas = [
+        { name: "Henrik Sørensen", severity: "moderate" },
+        { name: "Birte Andersen", severity: "severe" }
+      ];
+
+      const personaList = document.getElementById("personaList");
+      const runBtn = document.getElementById("runBtn");
+      const status = document.getElementById("status");
+
+      let selectedPersona = null;
+
+      personas.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "persona";
+        div.textContent = `${p.name} (${p.severity} aphasia)`;
+
+        div.onclick = () => {
+          document.querySelectorAll(".persona")
+            .forEach(el => el.classList.remove("active"));
+
+          div.classList.add("active");
+          selectedPersona = p;
+          runBtn.disabled = false;
+          status.textContent = `Selected: ${p.name}`;
+        };
+
+        personaList.appendChild(div);
+      });
+
+      runBtn.onclick = () => {
+        status.textContent =
+          `✅ Simulation would run for ${selectedPersona.name}`;
+      };
+
+    });
+  </script>
 </body>
 </html>
