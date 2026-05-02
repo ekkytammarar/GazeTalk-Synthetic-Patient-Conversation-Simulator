@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>GazeTalk Simulator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>GazeTalk Synthetic Patient Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
     body {
@@ -14,15 +14,33 @@
     }
 
     h1 {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+      max-width: 1100px;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 16px;
     }
 
     .persona {
       border: 1px solid #374151;
-      padding: 12px;
+      padding: 10px;
       border-radius: 6px;
       margin-bottom: 8px;
       cursor: pointer;
+    }
+
+    .persona:hover {
+      background: #1e293b;
     }
 
     .persona.active {
@@ -30,10 +48,43 @@
     }
 
     button {
-      margin-top: 16px;
+      width: 100%;
+      margin-top: 12px;
       padding: 10px;
-      width: 200px;
       font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .chat {
+      background: #020617;
+      border-radius: 6px;
+      padding: 12px;
+      height: 320px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+
+    .msg {
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .therapist {
+      color: #93c5fd;
+    }
+
+    .patient {
+      color: #fde68a;
+      text-align: right;
+    }
+
+    .error {
+      color: #f87171;
     }
   </style>
 </head>
@@ -41,27 +92,51 @@
 <body>
   <h1>GazeTalk Synthetic Patient Simulator</h1>
 
-  <div id="personaList"></div>
+  <div class="layout">
+    <div class="card">
+      <h3>Patient Personas</h3>
+      <div id="personaList"></div>
 
-  <button id="runBtn" disabled>
-    ▶ Run Simulation
-  </button>
+      <button id="runBtn" disabled>
+        ▶ Run Simulation
+      </button>
+    </div>
 
-  <p id="status"></p>
+    <div class="card">
+      <h3>Conversation</h3>
+      <div id="chat" class="chat"></div>
+    </div>
+  </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+
+      /* ---------- DATA ---------- */
 
       const personas = [
         { name: "Henrik Sørensen", severity: "moderate" },
         { name: "Birte Andersen", severity: "severe" }
       ];
 
+      let selectedPersona = null;
+
+      /* ---------- ELEMENTS ---------- */
+
       const personaList = document.getElementById("personaList");
       const runBtn = document.getElementById("runBtn");
-      const status = document.getElementById("status");
+      const chat = document.getElementById("chat");
 
-      let selectedPersona = null;
+      /* ---------- UI HELPERS ---------- */
+
+      function addMessage(role, text, isError = false) {
+        const div = document.createElement("div");
+        div.className = `msg ${role} ${isError ? "error" : ""}`;
+        div.textContent = text;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      /* ---------- RENDER PERSONAS ---------- */
 
       personas.forEach(p => {
         const div = document.createElement("div");
@@ -75,15 +150,50 @@
           div.classList.add("active");
           selectedPersona = p;
           runBtn.disabled = false;
-          status.textContent = `Selected: ${p.name}`;
         };
 
         personaList.appendChild(div);
       });
 
-      runBtn.onclick = () => {
-        status.textContent =
-          `✅ Simulation would run for ${selectedPersona.name}`;
+      /* ---------- RUN SIMULATION ---------- */
+
+      runBtn.onclick = async () => {
+        if (!selectedPersona) return;
+
+        chat.innerHTML = "";
+        addMessage("therapist", "Hello! How are you today?");
+
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-3-5-sonnet-20240620",
+              max_tokens: 200,
+              system:
+                `You are a patient with ${selectedPersona.severity} aphasia. `
+                + `Respond briefly and naturally.`,
+              messages: [
+                { role: "user", content: "Hello! How are you today?" }
+              ]
+            })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data?.error?.message || "Backend error");
+          }
+
+          if (!data.content || !data.content[0]) {
+            throw new Error("No response from Claude");
+          }
+
+          addMessage("patient", data.content[0].text);
+
+        } catch (err) {
+          addMessage("therapist", `Error: ${err.message}`, true);
+        }
       };
 
     });
