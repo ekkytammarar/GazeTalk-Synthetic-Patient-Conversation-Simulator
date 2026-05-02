@@ -13,13 +13,11 @@
       padding: 24px;
     }
 
-    h1 {
-      margin-bottom: 12px;
-    }
+    h1 { margin-bottom: 8px; }
 
     .layout {
       display: grid;
-      grid-template-columns: 280px 1fr;
+      grid-template-columns: 300px 1fr;
       gap: 16px;
       max-width: 1100px;
     }
@@ -39,12 +37,10 @@
       cursor: pointer;
     }
 
-    .persona:hover {
-      background: #1e293b;
-    }
-
+    .persona:hover { background: #1e293b; }
     .persona.active {
       background: #1d4ed8;
+      border-color: #60a5fa;
     }
 
     button {
@@ -69,61 +65,125 @@
       font-size: 14px;
     }
 
-    .msg {
-      margin-bottom: 10px;
-      line-height: 1.5;
-    }
+    .msg { margin-bottom: 10px; line-height: 1.5; }
+    .therapist { color: #93c5fd; }
+    .patient { color: #fde68a; text-align: right; }
+    .error { color: #f87171; }
 
-    .therapist {
-      color: #93c5fd;
-    }
-
-    .patient {
-      color: #fde68a;
-      text-align: right;
-    }
-
-    .error {
-      color: #f87171;
+    .selected-patient {
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #a5b4fc;
     }
   </style>
 </head>
 
 <body>
-  <h1>GazeTalk Synthetic Patient Simulator</h1>
 
-  <div class="layout">
-    <div class="card">
-      <h3>Patient Personas</h3>
-      <div id="personaList"></div>
+<h1>GazeTalk Synthetic Patient Simulator</h1>
 
-      <button id="runBtn" disabled>
-        ▶ Run Simulation
-      </button>
-    </div>
+<div class="layout">
 
-    <div class="card">
-      <h3>Conversation</h3>
-      <div id="chat" class="chat"></div>
-    </div>
+  <!-- LEFT: PATIENT PERSONAS -->
+  <div class="card">
+    <h3>Patient Personas</h3>
+    <div id="personaList"></div>
+    <button id="runBtn" disabled>▶ Run Simulation</button>
   </div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
+  <!-- RIGHT: CONVERSATION -->
+  <div class="card">
+    <h3>Conversation</h3>
+    <div id="selectedPatient" class="selected-patient">
+      No patient selected
+    </div>
+    <div id="chat" class="chat"></div>
+  </div>
 
-      const personas = [
-        { name: "Henrik Sørensen", severity: "moderate" },
-        { name: "Birte Andersen", severity: "severe" }
-      ];
+</div>
 
-      let selectedPersona = null;
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
-      const personaList = document.getElementById("personaList");
-      const runBtn = document.getElementById("runBtn");
-      const chat = document.getElementById("chat");
+  const personas = [
+    { name: "Henrik Sørensen", severity: "moderate" },
+    { name: "Birte Andersen", severity: "severe" }
+  ];
 
-      function addMessage(role, text, isError = false) {
-        const div = document.createElement("div");
-        div.className = `msg ${role} ${isError ? "error" : ""}`;
-        div.textContent = text;
-        chat.appendChild(div);
+  let selectedPersona = null;
+
+  const personaList = document.getElementById("personaList");
+  const runBtn = document.getElementById("runBtn");
+  const chat = document.getElementById("chat");
+  const selectedPatientLabel = document.getElementById("selectedPatient");
+
+  function addMessage(role, text, isError = false) {
+    const div = document.createElement("div");
+    div.className = `msg ${role} ${isError ? "error" : ""}`;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  // Render personas
+  personas.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "persona";
+    div.textContent = `${p.name} (${p.severity} aphasia)`;
+
+    div.onclick = () => {
+      document.querySelectorAll(".persona")
+        .forEach(el => el.classList.remove("active"));
+
+      div.classList.add("active");
+      selectedPersona = p;
+      runBtn.disabled = false;
+      selectedPatientLabel.textContent =
+        `Patient: ${p.name} — ${p.severity} aphasia`;
+    };
+
+    personaList.appendChild(div);
+  });
+
+  // Run simulation
+  runBtn.onclick = async () => {
+    if (!selectedPersona) return;
+
+    chat.innerHTML = "";
+    addMessage("therapist", "Hello! How are you today?");
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-3-haiku-latest",
+          max_tokens: 200,
+          system:
+            `You are ${selectedPersona.name}, a patient with `
+            + `${selectedPersona.severity} aphasia. `
+            + `Respond briefly and naturally, with aphasia-appropriate language.`,
+          messages: [
+            { role: "user", content: "Hello! How are you today?" }
+          ]
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error?.message || "Backend error");
+      }
+
+      addMessage("patient", data.content[0].text);
+
+    } catch (err) {
+      addMessage("therapist", `Error: ${err.message}`, true);
+    }
+  };
+
+});
+</script>
+
+</body>
+</html>
