@@ -13,11 +13,13 @@
       padding: 24px;
     }
 
-    h1 { margin-bottom: 8px; }
+    h1 {
+      margin-bottom: 8px;
+    }
 
     .layout {
       display: grid;
-      grid-template-columns: 300px 1fr;
+      grid-template-columns: 320px 1fr;
       gap: 16px;
       max-width: 1100px;
     }
@@ -37,7 +39,10 @@
       cursor: pointer;
     }
 
-    .persona:hover { background: #1e293b; }
+    .persona:hover {
+      background: #1e293b;
+    }
+
     .persona.active {
       background: #1d4ed8;
       border-color: #60a5fa;
@@ -60,20 +65,33 @@
       background: #020617;
       border-radius: 6px;
       padding: 12px;
-      height: 320px;
+      height: 340px;
       overflow-y: auto;
       font-size: 14px;
     }
 
-    .msg { margin-bottom: 10px; line-height: 1.5; }
-    .therapist { color: #93c5fd; }
-    .patient { color: #fde68a; text-align: right; }
-    .error { color: #f87171; }
+    .msg {
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .therapist {
+      color: #93c5fd;
+    }
+
+    .patient {
+      color: #fde68a;
+      text-align: right;
+    }
+
+    .error {
+      color: #f87171;
+    }
 
     .selected-patient {
-      margin-bottom: 8px;
       font-size: 13px;
       color: #a5b4fc;
+      margin-bottom: 8px;
     }
   </style>
 </head>
@@ -84,14 +102,14 @@
 
 <div class="layout">
 
-  <!-- LEFT: PATIENT PERSONAS -->
+  <!-- LEFT PANEL -->
   <div class="card">
     <h3>Patient Personas</h3>
     <div id="personaList"></div>
     <button id="runBtn" disabled>▶ Run Simulation</button>
   </div>
 
-  <!-- RIGHT: CONVERSATION -->
+  <!-- RIGHT PANEL -->
   <div class="card">
     <h3>Conversation</h3>
     <div id="selectedPatient" class="selected-patient">
@@ -105,9 +123,21 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
+  /* ==============================
+     PATIENT PERSONAS
+  ============================== */
+
   const personas = [
-    { name: "Henrik Sørensen", severity: "moderate" },
-    { name: "Birte Andersen", severity: "severe" }
+    {
+      name: "Henrik Sørensen",
+      severity: "moderate",
+      description: "Occasional word-finding difficulty, short sentences."
+    },
+    {
+      name: "Birte Andersen",
+      severity: "severe",
+      description: "Very short phrases, frequent pauses."
+    }
   ];
 
   let selectedPersona = null;
@@ -125,7 +155,10 @@ document.addEventListener("DOMContentLoaded", () => {
     chat.scrollTop = chat.scrollHeight;
   }
 
-  // Render personas
+  /* ==============================
+     RENDER PERSONAS
+  ============================== */
+
   personas.forEach(p => {
     const div = document.createElement("div");
     div.className = "persona";
@@ -145,7 +178,10 @@ document.addEventListener("DOMContentLoaded", () => {
     personaList.appendChild(div);
   });
 
-  // Run simulation
+  /* ==============================
+     RUN SIMULATION
+  ============================== */
+
   runBtn.onclick = async () => {
     if (!selectedPersona) return;
 
@@ -157,14 +193,19 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-3-haiku-latest",
-          max_tokens: 200,
+          model: "claude-sonnet-4-6",
+          max_tokens: 220,
           system:
             `You are ${selectedPersona.name}, a patient with `
             + `${selectedPersona.severity} aphasia. `
-            + `Respond briefly and naturally, with aphasia-appropriate language.`,
+            + `${selectedPersona.description} `
+            + `Respond realistically as this patient. `
+            + `Do not explain your condition.`,
           messages: [
-            { role: "user", content: "Hello! How are you today?" }
+            {
+              role: "user",
+              content: "Hello! How are you today?"
+            }
           ]
         })
       });
@@ -172,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error?.message || "Backend error");
+        throw new Error(data?.error?.message || "Anthropic API error");
       }
 
       addMessage("patient", data.content[0].text);
