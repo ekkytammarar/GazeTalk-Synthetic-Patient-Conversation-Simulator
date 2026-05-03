@@ -13,9 +13,7 @@
       padding: 24px;
     }
 
-    h1 {
-      margin-bottom: 8px;
-    }
+    h1 { margin-bottom: 6px; }
 
     .layout {
       display: grid;
@@ -39,9 +37,7 @@
       cursor: pointer;
     }
 
-    .persona:hover {
-      background: #1e293b;
-    }
+    .persona:hover { background: #1e293b; }
 
     .persona.active {
       background: #1d4ed8;
@@ -65,28 +61,15 @@
       background: #020617;
       border-radius: 6px;
       padding: 12px;
-      height: 340px;
+      height: 360px;
       overflow-y: auto;
       font-size: 14px;
     }
 
-    .msg {
-      margin-bottom: 10px;
-      line-height: 1.5;
-    }
-
-    .therapist {
-      color: #93c5fd;
-    }
-
-    .patient {
-      color: #fde68a;
-      text-align: right;
-    }
-
-    .error {
-      color: #f87171;
-    }
+    .msg { margin-bottom: 10px; line-height: 1.5; }
+    .therapist { color: #93c5fd; }
+    .patient { color: #fde68a; text-align: right; }
+    .error { color: #f87171; }
 
     .selected-patient {
       font-size: 13px;
@@ -123,20 +106,46 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-  /* ==============================
+  /* ===============================
+     SIMULATION SETTINGS (Best Practice)
+  =============================== */
+
+  const MAX_TURNS = 8;       // soft cap
+  const TURN_DELAY_MS = 500;
+
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  const OPENING_PROMPTS = [
+    "Hello! How are you today?",
+    "Good to see you. How is your day going?",
+    "Hi there. How are you feeling right now?",
+    "Nice to talk again. How is your morning?"
+  ];
+
+  const FOLLOW_UP_PROMPTS = [
+    "Can you tell me a little more?",
+    "What else is on your mind?",
+    "Can you say more about that?",
+    "What feels important right now?",
+    "I’m listening. Go on."
+  ];
+
+  /* ===============================
      PATIENT PERSONAS
-  ============================== */
+  =============================== */
 
   const personas = [
     {
       name: "Henrik Sørensen",
       severity: "moderate",
-      description: "Occasional word-finding difficulty, short sentences."
+      description: "Occasional word‑finding difficulty. Short, halting sentences."
     },
     {
       name: "Birte Andersen",
       severity: "severe",
-      description: "Very short phrases, frequent pauses."
+      description: "Very short phrases. Long pauses. Frequent breakdowns."
     }
   ];
 
@@ -155,9 +164,9 @@ document.addEventListener("DOMContentLoaded", () => {
     chat.scrollTop = chat.scrollHeight;
   }
 
-  /* ==============================
+  /* ===============================
      RENDER PERSONAS
-  ============================== */
+  =============================== */
 
   personas.forEach(p => {
     const div = document.createElement("div");
@@ -167,8 +176,8 @@ document.addEventListener("DOMContentLoaded", () => {
     div.onclick = () => {
       document.querySelectorAll(".persona")
         .forEach(el => el.classList.remove("active"));
-
       div.classList.add("active");
+
       selectedPersona = p;
       runBtn.disabled = false;
       selectedPatientLabel.textContent =
@@ -178,48 +187,64 @@ document.addEventListener("DOMContentLoaded", () => {
     personaList.appendChild(div);
   });
 
-  /* ==============================
+  /* ===============================
      RUN SIMULATION
-  ============================== */
+  =============================== */
 
   runBtn.onclick = async () => {
     if (!selectedPersona) return;
 
     chat.innerHTML = "";
-    addMessage("therapist", "Hello! How are you today?");
+    let conversation = [];
 
-    try {
-      const response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 220,
-          system:
-            `You are ${selectedPersona.name}, a patient with `
-            + `${selectedPersona.severity} aphasia. `
-            + `${selectedPersona.description} `
-            + `Respond realistically as this patient. `
-            + `Do not explain your condition.`,
-          messages: [
-            {
-              role: "user",
-              content: "Hello! How are you today?"
-            }
-          ]
-        })
-      });
+    const energyLevel = Math.random();
+    const opening = pickRandom(OPENING_PROMPTS);
 
-      const data = await response.json();
+    addMessage("therapist", opening);
+    conversation.push({ role: "user", content: opening });
 
-      if (!response.ok) {
-        throw new Error(data?.error?.message || "Anthropic API error");
+    for (let turn = 1; turn <= MAX_TURNS; turn++) {
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 240,
+            system:
+              `You are ${selectedPersona.name}, a patient with `
+              + `${selectedPersona.severity} aphasia. `
+              + `${selectedPersona.description} `
+              + `Your current energy level is ${energyLevel.toFixed(2)}. `
+              + `Use aphasia‑appropriate speech. `
+              + `Do not explain your disorder.`,
+            messages: conversation
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error?.message || "Anthropic error");
+        }
+
+        const patientReply = data.content[0].text;
+        addMessage("patient", patientReply);
+        conversation.push({ role: "assistant", content: patientReply });
+
+        // ---- Natural stopping (fatigue) ----
+        if (patientReply.trim().length < 6) break;
+        if (/tired|enough|done|stop/i.test(patientReply)) break;
+
+        await new Promise(r => setTimeout(r, TURN_DELAY_MS));
+        const followUp = pickRandom(FOLLOW_UP_PROMPTS);
+
+        addMessage("therapist", followUp);
+        conversation.push({ role: "user", content: followUp });
+
+      } catch (err) {
+        addMessage("therapist", `Error: ${err.message}`, true);
+        break;
       }
-
-      addMessage("patient", data.content[0].text);
-
-    } catch (err) {
-      addMessage("therapist", `Error: ${err.message}`, true);
     }
   };
 
@@ -228,3 +253,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
 </body>
 </html>
+``
