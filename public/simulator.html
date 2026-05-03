@@ -4,21 +4,62 @@
   <meta charset="UTF-8" />
   <title>GazeTalk Synthetic Patient Simulator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
-    body { background:#0b1020; color:#e5e7eb; font-family:Arial; padding:24px; }
+    body {
+      background:#0b1020;
+      color:#e5e7eb;
+      font-family:Arial,sans-serif;
+      padding:24px;
+    }
     h1 { margin-bottom:8px; }
-    .layout { display:grid; grid-template-columns:320px 1fr; gap:16px; max-width:1100px; }
-    .card { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:16px; }
-    .persona { border:1px solid #374151; padding:10px; border-radius:6px; margin-bottom:8px; cursor:pointer; }
+    .layout {
+      display:grid;
+      grid-template-columns:320px 1fr;
+      gap:16px;
+      max-width:1100px;
+    }
+    .card {
+      background:#111827;
+      border:1px solid #1f2937;
+      border-radius:8px;
+      padding:16px;
+    }
+    .persona {
+      border:1px solid #374151;
+      padding:10px;
+      border-radius:6px;
+      margin-bottom:8px;
+      cursor:pointer;
+    }
     .persona:hover { background:#1e293b; }
-    .persona.active { background:#1d4ed8; border-color:#60a5fa; }
-    button { width:100%; margin-top:12px; padding:10px; font-weight:bold; cursor:pointer; }
-    button:disabled { opacity:0.5; cursor:not-allowed; }
-    .chat { background:#020617; border-radius:6px; padding:12px; height:380px; overflow-y:auto; font-size:14px; }
+    .persona.active {
+      background:#1d4ed8;
+      border-color:#60a5fa;
+    }
+    button {
+      width:100%;
+      margin-top:12px;
+      padding:10px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    .chat {
+      background:#020617;
+      border-radius:6px;
+      padding:12px;
+      height:380px;
+      overflow-y:auto;
+      font-size:14px;
+    }
     .msg { margin-bottom:10px; line-height:1.5; }
     .therapist { color:#93c5fd; }
     .patient { color:#fde68a; text-align:right; }
-    .selected { font-size:13px; color:#a5b4fc; margin-bottom:6px; }
+    .selected {
+      font-size:13px;
+      color:#a5b4fc;
+      margin-bottom:6px;
+    }
   </style>
 </head>
 
@@ -30,14 +71,18 @@
 
   <div class="card">
     <h3>Patient Personas</h3>
-    <p style="font-size:12px;color:#9ca3af">Select a patient to begin</p>
+    <p style="font-size:12px;color:#9ca3af">
+      Select a patient to begin
+    </p>
     <div id="personaList"></div>
     <button id="runBtn" disabled>▶ Run Simulation</button>
   </div>
 
   <div class="card">
     <h3>Conversation</h3>
-    <div id="selectedPatient" class="selected">No patient selected</div>
+    <div id="selectedPatient" class="selected">
+      No patient selected
+    </div>
     <div id="chat" class="chat"></div>
   </div>
 
@@ -46,59 +91,68 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-  const MAX_TURNS = 8;
-  const TURN_DELAY_MS = 500;
+  // ------------------------------
+  // Qianyi-style dialogue policy
+  // ------------------------------
 
-  let lastTherapistReply = null;
+  const MAX_TURNS = 6;                 // fixed, deterministic
+  const TURN_DELAY_MS = 400;
 
-  function pickRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
+  let turnIndex = 0;
+  let conversation = [];
 
-  function asksQuestion(t) {
-    return /\?|\byou\b/i.test(t);
-  }
-
-  function interactionProblem(t) {
-    return /same|again|you keep|not right|wrong/i.test(t);
-  }
-
-  function wantsToContinue(t) {
-    return /don.?t want to stop|like talking|keep going|continue/i.test(t);
-  }
-
-  function fatigued(t) {
-    return /tired|exhausted|enough|stop/i.test(t);
-  }
-
-  const OPENINGS = [
+  // Therapist prompt lists (fixed vocabulary)
+  const OPENING = [
     "Hello! How are you today?",
-    "Good to see you. How is your day going?",
-    "Nice to talk again. How is your morning?",
-    "Hi there. How are you feeling right now?"
+    "Nice to talk again. How is your day going?"
   ];
 
-  const FOLLOWUPS = [
-    "Can you tell me a little more?",
-    "What feels easiest to say right now?",
-    "What else is on your mind?",
-    "I’m listening. Go on."
+  const FOLLOW_UP = [
+    "Please go on.",
+    "Tell me more.",
+    "I am listening."
   ];
+
+  const CLOSING = [
+    "Okay. Let us stop here for today.",
+    "Thank you. We can continue another time."
+  ];
+
+  function pick(arr) {
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+
+  function explicitStop(text) {
+    return /stop|enough|done/i.test(text.toLowerCase());
+  }
+
+  // ------------------------------
+  // Personas (identity only)
+  // ------------------------------
 
   const personas = [
-    { name:"Henrik Sørensen", severity:"moderate",
-      desc:"Word-finding difficulty, socially aware, notices repetition." },
-    { name:"Birte Andersen", severity:"severe",
-      desc:"Very short utterances, strong fatigue, early disengagement." }
+    {
+      name:"Henrik Sørensen",
+      severity:"moderate",
+      description:
+        "Moderate aphasia. Short sentences. Pauses and gestures. Socially aware."
+    },
+    {
+      name:"Birte Andersen",
+      severity:"severe",
+      description:
+        "Severe aphasia. Very short utterances. Long pauses. Fatigues quickly."
+    }
   ];
 
   let selectedPersona = null;
+
   const personaList = document.getElementById("personaList");
   const chat = document.getElementById("chat");
   const runBtn = document.getElementById("runBtn");
   const selectedLabel = document.getElementById("selectedPatient");
 
-  function add(role, text) {
+  function add(role,text) {
     const d = document.createElement("div");
     d.className = `msg ${role}`;
     d.textContent = text;
@@ -108,40 +162,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
   personas.forEach(p => {
     const div = document.createElement("div");
-    div.className = "persona";
+    div.className="persona";
     div.textContent = `${p.name} (${p.severity} aphasia)`;
     div.onclick = () => {
-      document.querySelectorAll(".persona").forEach(el=>el.classList.remove("active"));
+      document.querySelectorAll(".persona")
+        .forEach(e=>e.classList.remove("active"));
       div.classList.add("active");
       selectedPersona = p;
       runBtn.disabled = false;
-      selectedLabel.textContent = `Patient: ${p.name} — ${p.severity} aphasia`;
+      selectedLabel.textContent =
+        `Patient: ${p.name} — ${p.severity} aphasia`;
     };
     personaList.appendChild(div);
   });
+
+  // ------------------------------
+  // Run simulation
+  // ------------------------------
 
   runBtn.onclick = async () => {
     if (!selectedPersona) return;
 
     chat.innerHTML = "";
-    lastTherapistReply = null;
-    let conversation = [];
+    conversation = [];
+    turnIndex = 0;
 
-    const opening = pickRandom(OPENINGS);
+    // Opening (therapist always speaks first)
+    const opening = pick(OPENING);
     add("therapist", opening);
     conversation.push({ role:"user", content:opening });
 
-    for (let turn=1; turn<=MAX_TURNS; turn++) {
+    while (turnIndex < MAX_TURNS) {
+      turnIndex++;
+
       try {
+        // Patient response (Claude)
         const r = await fetch("/chat", {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
             model:"claude-sonnet-4-6",
-            max_tokens:240,
+            max_tokens:200,
             system:
               `You are ${selectedPersona.name}, a patient with ${selectedPersona.severity} aphasia. `
-              + `${selectedPersona.desc} Use short speech, pauses, and gestures naturally. `
+              + `${selectedPersona.description} `
+              + `Express hesitation, pauses, and gestures naturally. `
               + `Do not explain aphasia.`,
             messages:conversation
           })
@@ -149,61 +214,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const data = await r.json();
         const patientReply = data.content[0].text;
+
         add("patient", patientReply);
         conversation.push({ role:"assistant", content:patientReply });
 
-        const wants = wantsToContinue(patientReply);
-        const problem = interactionProblem(patientReply);
-        const tired = fatigued(patientReply);
-        const question = asksQuestion(patientReply);
-
-        await new Promise(res=>setTimeout(res, TURN_DELAY_MS));
-
-        // ── Highest priority: ENGAGEMENT ──
-        if (wants) {
-          const reply =
-            "Thank you for telling me that. I hear the frustration, "
-            + "and we can keep going at your pace. What feels easiest to say next?";
-          add("therapist", reply);
-          conversation.push({ role:"user", content:reply });
-          lastTherapistReply = reply;
-          continue;
-        }
-
-        // ── Interaction breakdown ──
-        if (problem) {
-          add("therapist",
-            "Thank you for pointing that out. I hear that this doesn’t feel right today. "
-            + "Let’s stop here and continue another time.");
+        // Explicit stop → therapist closes once
+        if (explicitStop(patientReply)) {
+          const close = pick(CLOSING);
+          add("therapist", close);
           break;
         }
 
-        let therapistReply = question
-          ? "Thank you for asking — I’m doing well. We can go slowly, or pause if you like."
-          : pickRandom(FOLLOWUPS);
-
-        // ── Prevent repetition ──
-        if (therapistReply === lastTherapistReply) {
-          therapistReply =
-            "I notice I’m repeating myself. Thank you for noticing. "
-            + "Let’s stop here for today.";
-          add("therapist", therapistReply);
-          break;
+        // Otherwise therapist continues once
+        if (turnIndex < MAX_TURNS) {
+          await new Promise(res=>setTimeout(res, TURN_DELAY_MS));
+          const follow = pick(FOLLOW_UP);
+          add("therapist", follow);
+          conversation.push({ role:"user", content:follow });
         }
 
-        add("therapist", therapistReply);
-        conversation.push({ role:"user", content:therapistReply });
-        lastTherapistReply = therapistReply;
-
-        // ── Stop only if fatigued AND patient did not want to continue ──
-        if (tired && !wants) break;
-
-      } catch (e) {
-        add("therapist", "Error occurred. Ending session.");
+      } catch {
+        add("therapist","Error occurred. Ending session.");
         break;
       }
     }
   };
+
 });
 </script>
 </body>
