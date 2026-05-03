@@ -13,7 +13,7 @@
       padding: 24px;
     }
 
-    h1 { margin-bottom: 6px; }
+    h1 { margin-bottom: 8px; }
 
     .layout {
       display: grid;
@@ -42,6 +42,13 @@
     .persona.active {
       background: #1d4ed8;
       border-color: #60a5fa;
+    }
+
+    .persona small {
+      display: block;
+      font-size: 12px;
+      color: #c7d2fe;
+      margin-top: 4px;
     }
 
     button {
@@ -88,6 +95,9 @@
   <!-- LEFT PANEL -->
   <div class="card">
     <h3>Patient Personas</h3>
+    <p style="font-size:12px;color:#9ca3af">
+      Select a patient to start a session
+    </p>
     <div id="personaList"></div>
     <button id="runBtn" disabled>▶ Run Simulation</button>
   </div>
@@ -107,10 +117,10 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   /* ===============================
-     SIMULATION SETTINGS
+     SETTINGS
   =============================== */
 
-  const MAX_TURNS = 8;        // soft cap
+  const MAX_TURNS = 8;
   const TURN_DELAY_MS = 500;
 
   function pickRandom(arr) {
@@ -123,8 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const OPENING_PROMPTS = [
     "Hello! How are you today?",
-    "Good to see you. How is your day going?",
     "Hi there. How are you feeling right now?",
+    "Good to see you. How is your day going?",
     "Nice to talk again. How is your morning?"
   ];
 
@@ -137,14 +147,14 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   /* ===============================
-     PATIENT PERSONAS
+     PATIENT PERSONAS (VISIBLE)
   =============================== */
 
   const personas = [
     {
       name: "Henrik Sørensen",
       severity: "moderate",
-      description: "Short sentences, word-finding pauses, uses gestures."
+      description: "Short sentences, word‑finding pauses, uses gestures."
     },
     {
       name: "Birte Andersen",
@@ -175,7 +185,9 @@ document.addEventListener("DOMContentLoaded", () => {
   personas.forEach(p => {
     const div = document.createElement("div");
     div.className = "persona";
-    div.textContent = `${p.name} (${p.severity} aphasia)`;
+    div.innerHTML =
+      `<strong>${p.name}</strong> (${p.severity} aphasia)
+       <small>${p.description}</small>`;
 
     div.onclick = () => {
       document.querySelectorAll(".persona")
@@ -220,7 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
               + `${selectedPersona.severity} aphasia. `
               + `${selectedPersona.description} `
               + `Your current energy level is ${energyLevel.toFixed(2)}. `
-              + `Use natural pauses and gestures. `
+              + `Use pauses and gestures naturally. `
               + `Do not explain your condition.`,
             messages: conversation
           })
@@ -235,12 +247,33 @@ document.addEventListener("DOMContentLoaded", () => {
         addMessage("patient", patientReply);
         conversation.push({ role: "assistant", content: patientReply });
 
-        // ---- Natural stopping ----
         if (patientReply.trim().length < 6) break;
         if (/tired|enough|done|stop/i.test(patientReply)) break;
 
         await new Promise(r => setTimeout(r, TURN_DELAY_MS));
 
         let therapistReply;
-
         if (patientAsksQuestion(patientReply)) {
+          therapistReply =
+            "Thank you for asking. I’m doing well, thank you. "
+            + "Let’s take it easy — would you like to say one more word, "
+            + "or is this a good place to stop?";
+        } else {
+          therapistReply = pickRandom(FOLLOW_UP_PROMPTS);
+        }
+
+        addMessage("therapist", therapistReply);
+        conversation.push({ role: "user", content: therapistReply });
+
+      } catch (err) {
+        addMessage("therapist", `Error: ${err.message}`, true);
+        break;
+      }
+    }
+  };
+
+});
+</script>
+
+</body>
+</html>
