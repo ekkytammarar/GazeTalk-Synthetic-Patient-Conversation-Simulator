@@ -71,18 +71,14 @@
 
   <div class="card">
     <h3>Patient Personas</h3>
-    <p style="font-size:12px;color:#9ca3af">
-      Select a patient to begin
-    </p>
+    <p style="font-size:12px;color:#9ca3af">Select a patient to begin</p>
     <div id="personaList"></div>
     <button id="runBtn" disabled>▶ Run Simulation</button>
   </div>
 
   <div class="card">
     <h3>Conversation</h3>
-    <div id="selectedPatient" class="selected">
-      No patient selected
-    </div>
+    <div id="selectedPatient" class="selected">No patient selected</div>
     <div id="chat" class="chat"></div>
   </div>
 
@@ -91,57 +87,68 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-  // ------------------------------
-  // Qianyi-style dialogue policy
-  // ------------------------------
+  /* ===============================
+     Qianyi-style dialogue policy
+  =============================== */
 
-  const MAX_TURNS = 6;                 // fixed, deterministic
+  const MAX_TURNS = 6;
   const TURN_DELAY_MS = 400;
 
-  let turnIndex = 0;
   let conversation = [];
+  let turnIndex = 0;
 
-  // Therapist prompt lists (fixed vocabulary)
-  const OPENING = [
+  const OPENING_PROMPTS = [
     "Hello! How are you today?",
     "Nice to talk again. How is your day going?"
   ];
 
-  const FOLLOW_UP = [
+  const FOLLOW_UP_PROMPTS = [
     "Please go on.",
     "Tell me more.",
     "I am listening."
   ];
 
-  const CLOSING = [
+  const CLOSING_PROMPTS = [
     "Okay. Let us stop here for today.",
     "Thank you. We can continue another time."
   ];
 
   function pick(arr) {
-    return arr[Math.floor(Math.random()*arr.length)];
+    return arr[Math.floor(Math.random() * arr.length)];
   }
 
   function explicitStop(text) {
     return /stop|enough|done/i.test(text.toLowerCase());
   }
 
-  // ------------------------------
-  // Personas (identity only)
-  // ------------------------------
+  /* ===============================
+     Four personas (Qianyi-style)
+  =============================== */
 
   const personas = [
     {
-      name:"Henrik Sørensen",
-      severity:"moderate",
+      name: "Henrik Sørensen",
+      severity: "moderate",
       description:
-        "Moderate aphasia. Short sentences. Pauses and gestures. Socially aware."
+        "Moderate aphasia. Short sentences, pauses, gestures. Socially aware and reflective."
     },
     {
-      name:"Birte Andersen",
-      severity:"severe",
+      name: "Birte Andersen",
+      severity: "severe",
       description:
-        "Severe aphasia. Very short utterances. Long pauses. Fatigues quickly."
+        "Severe aphasia. Very short utterances, long pauses, fatigues quickly."
+    },
+    {
+      name: "Mads Nielsen",
+      severity: "mild",
+      description:
+        "Mild aphasia. Mostly fluent with occasional word-finding difficulty and self-correction."
+    },
+    {
+      name: "Inge Larsen",
+      severity: "moderate-severe",
+      description:
+        "Moderate to severe aphasia. Emotionally expressive, uses gestures and tone strongly."
     }
   ];
 
@@ -152,7 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const runBtn = document.getElementById("runBtn");
   const selectedLabel = document.getElementById("selectedPatient");
 
-  function add(role,text) {
+  function add(role, text) {
     const d = document.createElement("div");
     d.className = `msg ${role}`;
     d.textContent = text;
@@ -162,11 +169,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   personas.forEach(p => {
     const div = document.createElement("div");
-    div.className="persona";
+    div.className = "persona";
     div.textContent = `${p.name} (${p.severity} aphasia)`;
     div.onclick = () => {
       document.querySelectorAll(".persona")
-        .forEach(e=>e.classList.remove("active"));
+        .forEach(e => e.classList.remove("active"));
       div.classList.add("active");
       selectedPersona = p;
       runBtn.disabled = false;
@@ -176,9 +183,9 @@ document.addEventListener("DOMContentLoaded", () => {
     personaList.appendChild(div);
   });
 
-  // ------------------------------
-  // Run simulation
-  // ------------------------------
+  /* ===============================
+     Run simulation
+  =============================== */
 
   runBtn.onclick = async () => {
     if (!selectedPersona) return;
@@ -187,16 +194,14 @@ document.addEventListener("DOMContentLoaded", () => {
     conversation = [];
     turnIndex = 0;
 
-    // Opening (therapist always speaks first)
-    const opening = pick(OPENING);
+    const opening = pick(OPENING_PROMPTS);
     add("therapist", opening);
-    conversation.push({ role:"user", content:opening });
+    conversation.push({ role:"user", content: opening });
 
     while (turnIndex < MAX_TURNS) {
       turnIndex++;
 
       try {
-        // Patient response (Claude)
         const r = await fetch("/chat", {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
@@ -208,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
               + `${selectedPersona.description} `
               + `Express hesitation, pauses, and gestures naturally. `
               + `Do not explain aphasia.`,
-            messages:conversation
+            messages: conversation
           })
         });
 
@@ -216,25 +221,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const patientReply = data.content[0].text;
 
         add("patient", patientReply);
-        conversation.push({ role:"assistant", content:patientReply });
+        conversation.push({ role:"assistant", content: patientReply });
 
-        // Explicit stop → therapist closes once
         if (explicitStop(patientReply)) {
-          const close = pick(CLOSING);
+          const close = pick(CLOSING_PROMPTS);
           add("therapist", close);
           break;
         }
 
-        // Otherwise therapist continues once
         if (turnIndex < MAX_TURNS) {
-          await new Promise(res=>setTimeout(res, TURN_DELAY_MS));
-          const follow = pick(FOLLOW_UP);
+          await new Promise(res => setTimeout(res, TURN_DELAY_MS));
+          const follow = pick(FOLLOW_UP_PROMPTS);
           add("therapist", follow);
-          conversation.push({ role:"user", content:follow });
+          conversation.push({ role:"user", content: follow });
         }
 
       } catch {
-        add("therapist","Error occurred. Ending session.");
+        add("therapist", "Error occurred. Ending session.");
         break;
       }
     }
@@ -242,5 +245,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 </script>
+
 </body>
 </html>
