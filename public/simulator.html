@@ -44,13 +44,6 @@
       border-color: #60a5fa;
     }
 
-    .persona small {
-      display: block;
-      font-size: 12px;
-      color: #c7d2fe;
-      margin-top: 4px;
-    }
-
     button {
       width: 100%;
       margin-top: 12px;
@@ -120,7 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
      SETTINGS
   =============================== */
 
-  const MAX_TURNS = 8;
+  const MAX_TURNS = 8;        // soft safety cap
   const TURN_DELAY_MS = 500;
 
   function pickRandom(arr) {
@@ -133,8 +126,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const OPENING_PROMPTS = [
     "Hello! How are you today?",
-    "Hi there. How are you feeling right now?",
     "Good to see you. How is your day going?",
+    "Hi there. How are you feeling right now?",
     "Nice to talk again. How is your morning?"
   ];
 
@@ -147,14 +140,14 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   /* ===============================
-     PATIENT PERSONAS (VISIBLE)
+     PATIENT PERSONAS
   =============================== */
 
   const personas = [
     {
       name: "Henrik Sørensen",
       severity: "moderate",
-      description: "Short sentences, word‑finding pauses, uses gestures."
+      description: "Short sentences, word-finding pauses, natural gestures."
     },
     {
       name: "Birte Andersen",
@@ -185,9 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
   personas.forEach(p => {
     const div = document.createElement("div");
     div.className = "persona";
-    div.innerHTML =
-      `<strong>${p.name}</strong> (${p.severity} aphasia)
-       <small>${p.description}</small>`;
+    div.textContent = `${p.name} (${p.severity} aphasia)`;
 
     div.onclick = () => {
       document.querySelectorAll(".persona")
@@ -247,23 +238,33 @@ document.addEventListener("DOMContentLoaded", () => {
         addMessage("patient", patientReply);
         conversation.push({ role: "assistant", content: patientReply });
 
-        if (patientReply.trim().length < 6) break;
-        if (/tired|enough|done|stop/i.test(patientReply)) break;
+        // -------- Intent & fatigue detection (NO BREAK YET) --------
+        const asksQuestion = patientAsksQuestion(patientReply);
+        const fatigued =
+          patientReply.trim().length < 6 ||
+          /tired|enough|done|stop/i.test(patientReply);
 
+        // -------- Therapist ALWAYS replies once --------
         await new Promise(r => setTimeout(r, TURN_DELAY_MS));
 
         let therapistReply;
-        if (patientAsksQuestion(patientReply)) {
+        if (asksQuestion) {
           therapistReply =
-            "Thank you for asking. I’m doing well, thank you. "
-            + "Let’s take it easy — would you like to say one more word, "
-            + "or is this a good place to stop?";
+            "Thank you for asking — I’m doing well, thank you. "
+            + "It sounds like today feels okay, but tiring. "
+            + "We can go slowly. Would you like to say one more word, "
+            + "or is this a good place to pause?";
         } else {
           therapistReply = pickRandom(FOLLOW_UP_PROMPTS);
         }
 
         addMessage("therapist", therapistReply);
         conversation.push({ role: "user", content: therapistReply });
+
+        // -------- Stop AFTER replying --------
+        if (fatigued && !asksQuestion) {
+          break;
+        }
 
       } catch (err) {
         addMessage("therapist", `Error: ${err.message}`, true);
