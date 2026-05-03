@@ -15,9 +15,9 @@
     h1 { margin-bottom:8px; }
     .layout {
       display:grid;
-      grid-template-columns:320px 1fr;
+      grid-template-columns:360px 1fr;
       gap:16px;
-      max-width:1100px;
+      max-width:1200px;
     }
     .card {
       background:#111827;
@@ -37,6 +37,11 @@
       background:#1d4ed8;
       border-color:#60a5fa;
     }
+    .meta {
+      font-size:12px;
+      color:#c7d2fe;
+      margin-top:4px;
+    }
     button {
       width:100%;
       margin-top:12px;
@@ -48,7 +53,7 @@
       background:#020617;
       border-radius:6px;
       padding:12px;
-      height:380px;
+      height:420px;
       overflow-y:auto;
       font-size:14px;
     }
@@ -71,14 +76,18 @@
 
   <div class="card">
     <h3>Patient Personas</h3>
-    <p style="font-size:12px;color:#9ca3af">Select a patient to begin</p>
+    <p style="font-size:12px;color:#9ca3af">
+      Select a patient to begin
+    </p>
     <div id="personaList"></div>
     <button id="runBtn" disabled>▶ Run Simulation</button>
   </div>
 
   <div class="card">
     <h3>Conversation</h3>
-    <div id="selectedPatient" class="selected">No patient selected</div>
+    <div id="selectedPatient" class="selected">
+      No patient selected
+    </div>
     <div id="chat" class="chat"></div>
   </div>
 
@@ -88,10 +97,10 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   /* ===============================
-     Qianyi-style dialogue policy
+     Qianyi-style dialogue discipline
   =============================== */
 
-  const MAX_TURNS = 6;
+  const MAX_TURNS = 6;          // Fixed, bounded
   const TURN_DELAY_MS = 400;
 
   let conversation = [];
@@ -122,33 +131,62 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ===============================
-     Four personas (Qianyi-style)
+     Personas (VERBATIM FIELDS
+     from Qianyi's code)
   =============================== */
 
   const personas = [
     {
-      name: "Henrik Sørensen",
-      severity: "moderate",
-      description:
-        "Moderate aphasia. Short sentences, pauses, gestures. Socially aware and reflective."
+      patient_id: "CN_F_58_001",
+      display_name: "Ms. Lin",
+      country_or_culture: "China",
+      age_group: "50+",
+      gender: "female",
+      interests: ["cooking","family","shopping","weather"],
+      daily_routines: ["cook breakfast","go market","call daughter"],
+      communication_goals: ["daily needs","family chat"],
+      aphasia_severity: "severe",
+      system_familiarity: 0.42,
+      fatigue_sensitivity: 1.12
     },
     {
-      name: "Birte Andersen",
-      severity: "severe",
-      description:
-        "Severe aphasia. Very short utterances, long pauses, fatigues quickly."
+      patient_id: "DK_M_29_001",
+      display_name: "Mr. Mads",
+      country_or_culture: "Denmark",
+      age_group: "20-35",
+      gender: "male",
+      interests: ["football","friends","gym","coffee"],
+      daily_routines: ["bike commute","gym","coffee with friends"],
+      communication_goals: ["social chat","daily planning"],
+      aphasia_severity: "moderate",
+      system_familiarity: 0.68,
+      fatigue_sensitivity: 0.92
     },
     {
-      name: "Mads Nielsen",
-      severity: "mild",
-      description:
-        "Mild aphasia. Mostly fluent with occasional word-finding difficulty and self-correction."
+      patient_id: "IT_M_71_001",
+      display_name: "Mr. Paolo",
+      country_or_culture: "Italy",
+      age_group: "65+",
+      gender: "male",
+      interests: ["garden","family","coffee","weather"],
+      daily_routines: ["garden walk","coffee","family lunch"],
+      communication_goals: ["family visit","health needs"],
+      aphasia_severity: "severe",
+      system_familiarity: 0.35,
+      fatigue_sensitivity: 1.18
     },
     {
-      name: "Inge Larsen",
-      severity: "moderate-severe",
-      description:
-        "Moderate to severe aphasia. Emotionally expressive, uses gestures and tone strongly."
+      patient_id: "ID_F_41_001",
+      display_name: "Ms. Ayu",
+      country_or_culture: "Indonesia",
+      age_group: "35-55",
+      gender: "female",
+      interests: ["family","religion","cooking"],
+      daily_routines: ["family meal","prayer","market shopping"],
+      communication_goals: ["family chat","daily needs"],
+      aphasia_severity: "moderate",
+      system_familiarity: 0.50,
+      fatigue_sensitivity: 1.05
     }
   ];
 
@@ -167,10 +205,19 @@ document.addEventListener("DOMContentLoaded", () => {
     chat.scrollTop = chat.scrollHeight;
   }
 
+  /* ===============================
+     Render personas
+  =============================== */
+
   personas.forEach(p => {
     const div = document.createElement("div");
     div.className = "persona";
-    div.textContent = `${p.name} (${p.severity} aphasia)`;
+    div.innerHTML = `
+      <strong>${p.display_name}</strong>
+      <div class="meta">
+        ${p.country_or_culture} · ${p.age_group} · ${p.aphasia_severity} aphasia
+      </div>
+    `;
     div.onclick = () => {
       document.querySelectorAll(".persona")
         .forEach(e => e.classList.remove("active"));
@@ -178,7 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedPersona = p;
       runBtn.disabled = false;
       selectedLabel.textContent =
-        `Patient: ${p.name} — ${p.severity} aphasia`;
+        `Patient: ${p.display_name} — ${p.country_or_culture}`;
     };
     personaList.appendChild(div);
   });
@@ -209,9 +256,13 @@ document.addEventListener("DOMContentLoaded", () => {
             model:"claude-sonnet-4-6",
             max_tokens:200,
             system:
-              `You are ${selectedPersona.name}, a patient with ${selectedPersona.severity} aphasia. `
-              + `${selectedPersona.description} `
-              + `Express hesitation, pauses, and gestures naturally. `
+              `You are ${selectedPersona.display_name}, a ${selectedPersona.age_group} ${selectedPersona.gender} `
+              + `from ${selectedPersona.country_or_culture}. `
+              + `You have ${selectedPersona.aphasia_severity} aphasia. `
+              + `Your interests include ${selectedPersona.interests.join(", ")}. `
+              + `Your daily routines include ${selectedPersona.daily_routines.join(", ")}. `
+              + `Your communication goals include ${selectedPersona.communication_goals.join(", ")}. `
+              + `Use short, telegraphic speech with pauses and gestures. `
               + `Do not explain aphasia.`,
             messages: conversation
           })
@@ -224,8 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
         conversation.push({ role:"assistant", content: patientReply });
 
         if (explicitStop(patientReply)) {
-          const close = pick(CLOSING_PROMPTS);
-          add("therapist", close);
+          add("therapist", pick(CLOSING_PROMPTS));
           break;
         }
 
@@ -237,7 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
       } catch {
-        add("therapist", "Error occurred. Ending session.");
+        add("therapist","Error occurred. Ending session.");
         break;
       }
     }
