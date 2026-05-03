@@ -107,14 +107,18 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   /* ===============================
-     SIMULATION SETTINGS (Best Practice)
+     SIMULATION SETTINGS
   =============================== */
 
-  const MAX_TURNS = 8;       // soft cap
+  const MAX_TURNS = 8;        // soft cap
   const TURN_DELAY_MS = 500;
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function patientAsksQuestion(text) {
+    return /\?$|\byou\?\b|\byou\b/i.test(text.trim());
   }
 
   const OPENING_PROMPTS = [
@@ -140,12 +144,12 @@ document.addEventListener("DOMContentLoaded", () => {
     {
       name: "Henrik Sørensen",
       severity: "moderate",
-      description: "Occasional word‑finding difficulty. Short, halting sentences."
+      description: "Short sentences, word-finding pauses, uses gestures."
     },
     {
       name: "Birte Andersen",
       severity: "severe",
-      description: "Very short phrases. Long pauses. Frequent breakdowns."
+      description: "Very short phrases, long pauses, frequent breakdowns."
     }
   ];
 
@@ -216,8 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
               + `${selectedPersona.severity} aphasia. `
               + `${selectedPersona.description} `
               + `Your current energy level is ${energyLevel.toFixed(2)}. `
-              + `Use aphasia‑appropriate speech. `
-              + `Do not explain your disorder.`,
+              + `Use natural pauses and gestures. `
+              + `Do not explain your condition.`,
             messages: conversation
           })
         });
@@ -231,26 +235,12 @@ document.addEventListener("DOMContentLoaded", () => {
         addMessage("patient", patientReply);
         conversation.push({ role: "assistant", content: patientReply });
 
-        // ---- Natural stopping (fatigue) ----
+        // ---- Natural stopping ----
         if (patientReply.trim().length < 6) break;
         if (/tired|enough|done|stop/i.test(patientReply)) break;
 
         await new Promise(r => setTimeout(r, TURN_DELAY_MS));
-        const followUp = pickRandom(FOLLOW_UP_PROMPTS);
 
-        addMessage("therapist", followUp);
-        conversation.push({ role: "user", content: followUp });
+        let therapistReply;
 
-      } catch (err) {
-        addMessage("therapist", `Error: ${err.message}`, true);
-        break;
-      }
-    }
-  };
-
-});
-</script>
-
-</body>
-</html>
-``
+        if (patientAsksQuestion(patientReply)) {
